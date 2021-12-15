@@ -1,19 +1,3 @@
-# Zora — Auction House 〜 𓀨 〜
-
-![Auction House Header Image](./auction-house.png)
-
-The Zora Auction House is an open and permissionless system that allows any creator, community, platform or DAO to create and run their own curated auction houses. 
-
-These auction houses run reserve timed auctions for NFTs, with special emphasis given to the role of curators. If an owner of an NFT chooses to list with a curator, that curator can charge a curator fee and has to approve any auction before it commences with that curators auction house. 
-
-Anyone is able to run an NFT auction on the protocol for free by simply not specifying a curator.
-
-The Zora ethos is to create public goods that are either owned by the community or by no one. As such, we have deployed this without admin functionality, and is therefore entirely permissionless and unstoppable.
-
-*Mainnet address:* `0xE468cE99444174Bd3bBBEd09209577d25D1ad673`
-
-*Rinkeby address:* `0xE7dd1252f50B3d845590Da0c5eADd985049a03ce`
-
 ## Table of Contents
 - [Architecture](#architecture)
   - [Curators](#curators)
