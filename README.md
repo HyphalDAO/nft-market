@@ -1,9 +1,7 @@
 ## Table of Contents
 - [Architecture](#architecture)
-  - [Curators](#curators)
   - [Create Auction](#create-auction)
   - [Cancel Auction](#cancel-auction)
-  - [Set Auction Approval](#set-auction-approval)
   - [Create Bid](#create-bid)
   - [End Auction](#end-auction)
 - [Local Development](#local-development)
@@ -21,18 +19,6 @@ dedicate a portion of the winnings from the auction to a curator of their choice
 
 Note that if a curator is specified, the curator decides when to start the auction. 
 Additionally, the curator is able to cancel an auction before it begins.
-
-### Curators
-In a metaverse of millions of NFTs, the act of curation is critical. Curators create and facilitate context and community which augment the value of NFTs that they select. The act of curation creates value for the NFT by contextualizing it and signalling its importance to a particular community. The act of curation is extremely valuable, and is directly recognized by the Auction House system. A curator who successfully auctions off an NFT for an owner can earn a share in the sale. 
-
-We have defined a *curator* role in the auction house. A curator can:
-- Approve and deny proposals for an NFT to be listed with them.
-- Earn a fee for their curation
-- Cancel an auction prior to bidding being commenced
-
-Creators and collectors can submit a proposal to list their NFTs with a curator onchain, which the curator must accept (or optionally reject). This creates an onchain record of a curators activity and value creation. 
-
-Creators and collectors always have the option to run an auction themselves for free.
 
 ### Create Auction
 At any time, the holder of a token can create an auction. When an auction is created,
@@ -57,15 +43,6 @@ This action returns the token to the previous holder.
 | **Name**               | **Type**       | **Description**                                                                                |
 |------------------------|----------------|------------------------------------------------------------------------------------------------|
 | `auctionId`            | `uint256`      | The ID of the auction                                                                          |
-
-### Set Auction Approval
-If a created auction specifies a curator to start the auction, the curator _must_ approve it in order for it to start.
-This is to allow curators to specifically choose which auctions they are willing to curate and perform.
-
-| **Name**               | **Type**       | **Description**                                                                                |
-|------------------------|----------------|------------------------------------------------------------------------------------------------|
-| `auctionId`            | `uint256`      | The ID of the auction                                                                          |
-| `approved`             | `bool`         | The approval state to set on the auction                                                       |
 
 ### Create Bid
 If an auction is approved, anyone is able to bid. The first bid _must_ be greater than the reserve price. 

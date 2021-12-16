@@ -25,7 +25,7 @@ interface IMediaExtended is IMedia {
 }
 
 /**
- * @title An open auction house, enabling collectors and curators to run their own auctions
+ * @title An open auction house, enabling collectors to run their own auctions
  */
 contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
     using SafeMath for uint256;
@@ -76,22 +76,18 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
     /**
      * @notice Create an auction.
      * @dev Store the auction details in the auctions mapping and emit an AuctionCreated event.
-     * If there is no curator, or if the curator is the auction creator, automatically approve the auction.
      */
     function createAuction(
         uint256 tokenId,
         address tokenContract,
         uint256 duration,
         uint256 reservePrice,
-        address payable curator,
-        uint8 curatorFeePercentage,
         address auctionCurrency
     ) public override nonReentrant returns (uint256) {
         require(
             IERC165(tokenContract).supportsInterface(interfaceId),
             "tokenContract does not support ERC721 interface"
         );
-        require(curatorFeePercentage < 100, "curatorFeePercentage must be less than 100");
         address tokenOwner = IERC721(tokenContract).ownerOf(tokenId);
         require(msg.sender == IERC721(tokenContract).getApproved(tokenId) || msg.sender == tokenOwner, "Caller must be approved or owner for token id");
         uint256 auctionId = _auctionIdTracker.current();
@@ -99,15 +95,12 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
         auctions[auctionId] = Auction({
             tokenId: tokenId,
             tokenContract: tokenContract,
-            approved: false,
             amount: 0,
             duration: duration,
             firstBidTime: 0,
             reservePrice: reservePrice,
-            curatorFeePercentage: curatorFeePercentage,
             tokenOwner: tokenOwner,
             bidder: address(0),
-            curator: curator,
             auctionCurrency: auctionCurrency
         });
 
@@ -115,28 +108,13 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
 
         _auctionIdTracker.increment();
 
-        emit AuctionCreated(auctionId, tokenId, tokenContract, duration, reservePrice, tokenOwner, curator, curatorFeePercentage, auctionCurrency);
-
-
-        if(auctions[auctionId].curator == address(0) || curator == tokenOwner) {
-            _approveAuction(auctionId, true);
-        }
+        emit AuctionCreated(auctionId, tokenId, tokenContract, duration, reservePrice, tokenOwner, auctionCurrency);
 
         return auctionId;
     }
 
-    /**
-     * @notice Approve an auction, opening up the auction for bids.
-     * @dev Only callable by the curator. Cannot be called if the auction has already started.
-     */
-    function setAuctionApproval(uint256 auctionId, bool approved) external override auctionExists(auctionId) {
-        require(msg.sender == auctions[auctionId].curator, "Must be auction curator");
-        require(auctions[auctionId].firstBidTime == 0, "Auction has already started");
-        _approveAuction(auctionId, approved);
-    }
-
     function setAuctionReservePrice(uint256 auctionId, uint256 reservePrice) external override auctionExists(auctionId) {
-        require(msg.sender == auctions[auctionId].curator || msg.sender == auctions[auctionId].tokenOwner, "Must be auction curator or token owner");
+        require(msg.sender == auctions[auctionId].tokenOwner, "Must be token owner");
         require(auctions[auctionId].firstBidTime == 0, "Auction has already started");
 
         auctions[auctionId].reservePrice = reservePrice;
@@ -158,7 +136,6 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
     nonReentrant
     {
         address payable lastBidder = auctions[auctionId].bidder;
-        require(auctions[auctionId].approved, "Auction must be approved by curator");
         require(
             auctions[auctionId].firstBidTime == 0 ||
             block.timestamp <
@@ -258,7 +235,6 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
         );
 
         address currency = auctions[auctionId].auctionCurrency == address(0) ? wethAddress : auctions[auctionId].auctionCurrency;
-        uint256 curatorFee = 0;
 
         uint256 tokenOwnerProfit = auctions[auctionId].amount;
 
@@ -280,12 +256,6 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
             }
         }
 
-
-        if(auctions[auctionId].curator != address(0)) {
-            curatorFee = tokenOwnerProfit.mul(auctions[auctionId].curatorFeePercentage).div(100);
-            tokenOwnerProfit = tokenOwnerProfit.sub(curatorFee);
-            _handleOutgoingBid(auctions[auctionId].curator, curatorFee, auctions[auctionId].auctionCurrency);
-        }
         _handleOutgoingBid(auctions[auctionId].tokenOwner, tokenOwnerProfit, auctions[auctionId].auctionCurrency);
 
         emit AuctionEnded(
@@ -293,10 +263,8 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
             auctions[auctionId].tokenId,
             auctions[auctionId].tokenContract,
             auctions[auctionId].tokenOwner,
-            auctions[auctionId].curator,
             auctions[auctionId].bidder,
             tokenOwnerProfit,
-            curatorFee,
             currency
         );
         delete auctions[auctionId];
@@ -308,8 +276,8 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
      */
     function cancelAuction(uint256 auctionId) external override nonReentrant auctionExists(auctionId) {
         require(
-            auctions[auctionId].tokenOwner == msg.sender || auctions[auctionId].curator == msg.sender,
-            "Can only be called by auction creator or curator"
+            auctions[auctionId].tokenOwner == msg.sender,
+            "Can only be called by auction creator"
         );
         require(
             uint256(auctions[auctionId].firstBidTime) == 0,
@@ -365,11 +333,6 @@ contract AuctionHouse is IAuctionHouse, ReentrancyGuard {
 
         emit AuctionCanceled(auctionId, auctions[auctionId].tokenId, auctions[auctionId].tokenContract, tokenOwner);
         delete auctions[auctionId];
-    }
-
-    function _approveAuction(uint256 auctionId, bool approved) internal {
-        auctions[auctionId].approved = approved;
-        emit AuctionApprovalUpdated(auctionId, auctions[auctionId].tokenId, auctions[auctionId].tokenContract, approved);
     }
 
     function _exists(uint256 auctionId) internal view returns(bool) {
